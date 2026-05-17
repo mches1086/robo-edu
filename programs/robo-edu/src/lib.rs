@@ -12,6 +12,26 @@ pub mod robo_edu {
         msg!("Owner: {}", ctx.accounts.user.key());
         Ok(())
     }
+
+    pub fn create_vehicle(
+        ctx: Context<CreateVehicle>,
+        vehicle_id: u64,
+        total_shares: u64,
+    ) -> Result<()> {
+        let vehicle = &mut ctx.accounts.vehicle_account;            // &mut : tells Rust "I want a mutable reference to write to it"
+
+        vehicle.authority = ctx.accounts.authority.key();
+        vehicle.vehicle_id = vehicle_id;
+        vehicle.total_shares = total_shares;
+        vehicle.shares_issued = 0;
+        vehicle.revenue_accumulated = 0;
+        vehicle.is_active = false;
+        vehicle.bump = ctx.bumps.vehicle_account;
+
+        msg!("🚕 Vehicle {} created with {} total shares", vehicle_id, total_shares);
+        Ok(())
+    }
+
 }
 
 // This is the ACCOUNTS STRUCT (the checklist)
@@ -34,7 +54,25 @@ pub struct VehicleAccount {
     pub bump: u8,                    // PDA bump seed - we'll explain this next (1 byte)
 }
 
+// create vehicle account
+#[derive(Accounts)]
+#[instruction(vehicle_id: u64)]  // gives the struct access to instruction arguments
+pub struct CreateVehicle<'info> {
+    
+    #[account(mut)]                 // tells Solana "this account's data can change"
+    pub authority: Signer<'info>,  // creates + pays rent, must sign
 
+    #[account(
+        init,                      // create this account;  tells Anchor to create this account from scratch. Without it, Anchor expects the account to already exist.
+        payer = authority,         // authority wallet pays the rent
+        space = 74,                // bytes to reserve (our calculation)
+        seeds = [b"vehicle", vehicle_id.to_le_bytes().as_ref()],        // PDA seeds
+        bump                       // let Anchor find the bump
+    )]
+    pub vehicle_account: Account<'info, VehicleAccount>,
+
+    pub system_program: Program<'info, System>,  // needed for account creation
+}
 // If anything on the checklist is missing or wrong, the transaction is rejected before your code even runs.
 
 
